@@ -1,0 +1,224 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #0b0d12;
+  --bg-raised: #12151c;
+  --bg-inset: #0e1015;
+  --border: #1f2430;
+  --border-strong: #2a3140;
+  --text: #edeff3;
+  --text-muted: #97a0b1;
+  --text-faint: #616a7b;
+  --accent: #8b98ff;
+  --accent-dim: #5c66b8;
+  --amber: #e3a857;
+  --code-bg: #10131a;
+}
+
+.light {
+  --bg: #ffffff;
+  --bg-raised: #f6f7f9;
+  --bg-inset: #f0f1f4;
+  --border: #e6e8ec;
+  --border-strong: #d6d9e0;
+  --text: #14161c;
+  --text-muted: #565d6c;
+  --text-faint: #9096a3;
+  --accent: #5865e8;
+  --accent-dim: #8890e0;
+  --amber: #b3792f;
+  --code-bg: #f6f7f9;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-raised: var(--bg-raised);
+  --color-bg-inset: var(--bg-inset);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-amber: var(--amber);
+  --font-sans: "Inter", "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont, ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Inter Tight Variable", "Inter", "Segoe UI Variable", "Segoe UI", -apple-system, ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+* {
+  border-color: var(--border);
+}
+
+html {
+  color-scheme: dark;
+}
+html.light {
+  color-scheme: light;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--text);
+}
+
+/* scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---- prose (docs content) ---- */
+.doc-prose {
+  color: var(--text);
+  font-size: 0.975rem;
+  line-height: 1.75;
+  max-width: 100%;
+}
+.doc-prose > * + * {
+  margin-top: 1.15em;
+}
+.doc-prose h1 {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: var(--text);
+}
+.doc-prose h2 {
+  font-family: var(--font-display);
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 2.5em;
+  padding-top: 0.75em;
+  border-top: 1px solid var(--border);
+  scroll-margin-top: 6rem;
+}
+.doc-prose h2:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+.doc-prose h3 {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-top: 2em;
+  scroll-margin-top: 6rem;
+}
+.doc-prose h4 {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  scroll-margin-top: 6rem;
+}
+.doc-prose p, .doc-prose li { color: var(--text); }
+.doc-prose p { color: var(--text); }
+.doc-prose li::marker { color: var(--text-faint); }
+.doc-prose a {
+  color: var(--accent);
+  text-decoration: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+.doc-prose a:hover { border-bottom-color: var(--accent); }
+.doc-prose strong { color: var(--text); font-weight: 600; }
+.doc-prose ul { list-style: disc; padding-left: 1.3em; }
+.doc-prose ol { list-style: decimal; padding-left: 1.3em; }
+.doc-prose blockquote {
+  border-left: 2px solid var(--amber);
+  padding-left: 1em;
+  color: var(--text-muted);
+  font-style: normal;
+}
+.doc-prose :not(pre) > code {
+  font-family: var(--font-mono);
+  background: var(--bg-inset);
+  border: 1px solid var(--border);
+  padding: 0.1em 0.4em;
+  border-radius: 4px;
+  font-size: 0.85em;
+  color: var(--amber);
+}
+.doc-prose pre {
+  background: var(--code-bg) !important;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+.doc-prose pre code { font-family: var(--font-mono); }
+.doc-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.doc-prose th {
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 600;
+  border-bottom: 1px solid var(--border-strong);
+  padding: 0.5em 0.9em 0.5em 0;
+}
+.doc-prose td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.6em 0.9em 0.6em 0;
+  vertical-align: top;
+}
+.doc-prose hr { border-color: var(--border); margin: 2.5em 0; }
+.doc-prose h2 + p, .doc-prose h3 + p { margin-top: 0.75em; }
+
+/* rehype-pretty-code line highlight */
+.doc-prose [data-highlighted-line] {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-left: 2px solid var(--accent);
+  margin-left: -1.1rem;
+  padding-left: calc(1.1rem - 2px);
+}
+.doc-prose [data-rehype-pretty-code-fragment] {
+  display: block;
+}
+
+/* shiki dual-theme (light/dark) support */
+.shiki, .shiki span {
+  color: var(--shiki-dark) !important;
+  background-color: transparent !important;
+}
+.light .shiki, .light .shiki span {
+  color: var(--shiki-light) !important;
+}
+
+/* rehype-pretty-code output (doc pages) uses data-theme, not a .shiki class */
+pre[data-theme] span[style] {
+  color: var(--shiki-dark);
+}
+.light pre[data-theme] span[style] {
+  color: var(--shiki-light);
+}

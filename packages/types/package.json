@@ -1,0 +1,39 @@
+{
+  "name": "@memorie/types",
+  "version": "0.1.0",
+  "description": "Core type definitions for Memorie, the universal memory infrastructure engine.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sameer9823/memqra.git",
+    "directory": "packages/types"
+  },
+  "homepage": "https://memqra.vercel.app/",
+  "bugs": "https://github.com/Sameer9823/memqra/issues",
+  "author": "Memorie Contributors",
+  "keywords": [
+    "memorie",
+    "memory",
+    "types"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist *.tsbuildinfo"
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3"
+  }
+}

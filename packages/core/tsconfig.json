@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../types" },
+    { "path": "../storage" },
+    { "path": "../storage-memory" },
+    { "path": "../search-sqlite" },
+    { "path": "../vector-memory" },
+    { "path": "../embeddings" }
+  ]
+}

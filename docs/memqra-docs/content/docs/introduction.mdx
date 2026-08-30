@@ -1,0 +1,63 @@
+---
+title: "Introduction"
+description: "Memorie is a reusable memory infrastructure layer — memory that evolves, versions, and is traceable over time."
+---
+
+# Introduction
+
+Memorie is a reusable memory infrastructure layer — not a chatbot, not an
+AI assistant, not a vector-database wrapper. Any application, AI system,
+SaaS platform, or knowledge system can use it to store memory that
+**evolves, versions, and is traceable over time**, independent of which
+database or AI vendor sits underneath it.
+
+## Why Memorie
+
+Most "AI memory" libraries model memory as `text -> embedding -> vector DB
+-> similarity search`, with the vector store as the source of truth.
+Memorie inverts that: a **canonical memory store** is always authoritative,
+and vector/search/graph/cache stores are optional, rebuildable
+**projections** of it. This means you can change vector providers, add
+search, or lose your cache without ever losing memory — see
+[Architecture](/docs/ARCHITECTURE).
+
+## Core concepts
+
+- **Identity vs. state vs. version.** A `Memory` has a stable `id`
+  (identity) that persists across an evolving `content`/`state`
+  (current state) while every change is preserved as an immutable
+  `MemoryVersion` (history). See [Memory evolution](/docs/MEMORY-EVOLUTION).
+- **Lifecycle.** Memories move through an explicit state machine
+  (`active -> updated -> archived/expired/superseded/merged -> deleted`).
+  Invalid transitions throw `InvalidStateTransitionError` rather than
+  silently succeeding. See [Memory lifecycle](/docs/MEMORY-LIFECYCLE).
+- **Namespaces & subjects, not users & chats.** Nothing in the core
+  model assumes a chatbot. `subjectId` can be a user, a project, a
+  device, a document — whatever your application needs it to mean.
+- **Graceful degradation.** With zero optional adapters configured,
+  `engine.search()` still works (structured filters + a naive keyword
+  score over canonical content). Configuring a `SearchStore`/`VectorStore`
+  upgrades relevance without changing the call site.
+
+## Packages
+
+| Package | Purpose |
+|---|---|
+| `@memorie/types` | Core data model, typed errors, events. Zero runtime dependencies. |
+| `@memorie/storage` | Capability interfaces (`MemoryStore`, `VersionStore`, `VectorStore`, `SearchStore`, `GraphStore`, `CacheStore`, `BlobStore`, `ProvenanceStore`) + adapter contract test suites. |
+| `@memorie/storage-memory` | In-memory `MemoryStore`/`VersionStore`/`CacheStore`/`ConflictStore`/`GraphStore`. For tests and prototyping. |
+| `@memorie/storage-sqlite` | SQLite `MemoryStore`/`VersionStore` via `better-sqlite3`. Local-first, single-node. |
+| `@memorie/storage-postgres` | PostgreSQL `MemoryStore`/`VersionStore`/`ConflictStore` via `pg`. Real transactions. |
+| `@memorie/storage-security` | `EncryptedMemoryStore` + `AesGcmCipher`: a `MemoryStore` decorator for transparent encryption-at-rest. |
+| `@memorie/cache-redis` | Redis-backed `CacheStore` via `redis` (node-redis). |
+| `@memorie/search-sqlite` | SQLite FTS5-backed `SearchStore` (bm25 ranking, Porter stemming). |
+| `@memorie/vector-memory` | Brute-force, in-process cosine-similarity `VectorStore`. |
+| `@memorie/embeddings` | `HashEmbeddingProvider`: a deterministic, dependency-free embedding for exercising the vector path. |
+| `@memorie/core` | The `MemoryEngine` orchestration layer: CRUD, lifecycle, versioning/time-travel, hybrid search, ingest/conflict pipeline, graph relationships, observability, security, maintenance. |
+
+Not yet in this repo: MongoDB/MySQL/S3/Elasticsearch (storage/search),
+real vector-database adapters (Qdrant et al.), a real graph-database
+adapter (Neo4j et al.) — see [Storage adapters](/docs/ADAPTERS) for why
+and what a contributor would need to add one.
+
+Ready to write code? Continue to the [Quickstart](/docs/quickstart).

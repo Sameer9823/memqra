@@ -1,0 +1,201 @@
+[
+  {
+    "slug": "ADAPTERS",
+    "title": "Storage adapters",
+    "description": "The capability-interface model, every adapter implemented, and how to write your own.",
+    "headings": [
+      "Capability model",
+      "Implemented in this repo",
+      "Writing a custom adapter",
+      "Planned adapters (not yet built)"
+    ],
+    "excerpt": "Adapters Capability model Memorie doesn't have one monolithic \"storage adapter\" interface. Each concern is its own interface in : (required — the canonical store) , , , , , , A single adapter package may implement one or several. Nothing requires implementing all of them. Implemented in this repo Package Implements Notes , , , , Non persistent. Tests/prototyping. resolves full objects via an inject"
+  },
+  {
+    "slug": "API",
+    "title": "API reference",
+    "description": "The full MemoryEngine API surface: createMemoryEngine and every method it returns.",
+    "headings": [
+      "createMemoryEngine(config)",
+      "MemoryEngine",
+      "CRUD",
+      "Retrieval",
+      "Versioning / time travel",
+      "Relationships (Phase 5)",
+      "Evolution (Phase 4)",
+      "Forgetting",
+      "Maintenance (Phase 7)",
+      "Observability & security (Phase 7)",
+      "Introspection",
+      "Errors"
+    ],
+    "excerpt": "API Reference (Phases 1–6) This covers the public API surface implemented today — which is adapter agnostic: everything here works the same whether is , , or (see docs/ADAPTERS). See \"Roadmap\" for what's designed but not yet built. Returns a . When both and are configured, / automatically embed and upsert into the vector store, and automatically embeds the query text — see docs/SEARCH. CRUD — crea"
+  },
+  {
+    "slug": "ARCHITECTURE",
+    "title": "Architecture",
+    "description": "The canonical-store-plus-projections model and why memory needs its own infrastructure layer.",
+    "headings": [
+      "Why memory needs its own infrastructure layer",
+      "Canonical memory + projections",
+      "Capability-based adapters, not one giant interface",
+      "The memory model",
+      "Consistency model",
+      "Graceful degradation",
+      "What's implemented vs. designed"
+    ],
+    "excerpt": "Architecture Why memory needs its own infrastructure layer Most \"AI memory\" tools collapse everything into one pipeline: That pipeline treats the vector database as the source of truth. It works for simple recall, but it can't answer \"what did we believe last week?\", \"where did this claim come from?\", \"which memory superseded that one?\", or \"let's move from Pinecone to Qdrant without losing histor"
+  },
+  {
+    "slug": "BENCHMARKS",
+    "title": "Benchmarks",
+    "description": "How scripts/benchmark.mjs measures p50/p95/p99 operation latency.",
+    "headings": [
+      "Running it",
+      "What it measures, and what it deliberately doesn't",
+      "How the percentiles are computed",
+      "What's exercised"
+    ],
+    "excerpt": "Benchmarks Phase 7 of the design brief calls for \"benchmarks with p50/p95/p99 tracking.\" measures operation latency and reports those percentiles. Running it Sample output shape (numbers vary by machine and Node version): What it measures, and what it deliberately doesn't The benchmark runs against 's / — the same dependency free adapter the test suite uses — not against SQLite, Postgres, or any o"
+  },
+  {
+    "slug": "CONTRIBUTING",
+    "title": "Contributing",
+    "description": "How to propose changes, run the test suite, and add a new adapter.",
+    "headings": [
+      "The \"no fake implementations\" rule",
+      "Repo layout",
+      "Adding a new adapter",
+      "Adding an engine-level feature (hooks, pipeline steps, etc.)",
+      "Development commands",
+      "Before opening a PR",
+      "Code style"
+    ],
+    "excerpt": "Contributing to Memorie Thanks for considering it. This document covers how the repo is laid out, how to get a change tested, and the one rule that matters most here: no fake implementations. The \"no fake implementations\" rule Every adapter in implements a capability interface from or ( , , , , , , , , , , , ...) and is verified against a real instance of the thing it adapts — a real local PostgreS"
+  },
+  {
+    "slug": "EXAMPLES",
+    "title": "Examples",
+    "description": "Runnable examples covering every phase of the engine, from basic CRUD to Postgres + Redis.",
+    "headings": [],
+    "excerpt": "Examples Run from the repo root first (these examples import from each package's output). Then: Example Demonstrates Minimal add/get/update/delete flow. Multi tenant scoping and filtering with , using \"devices\"/\"organizations\" as the domain (not users/chat). Local first persistent storage via . Semantic search via + (dependency free, offline embedding). The same query with and without a configured"
+  },
+  {
+    "slug": "GRAPH",
+    "title": "Memory graph",
+    "description": "Typed, directed relationships between memories, multi-hop traversal, and the relationship search signal.",
+    "headings": [
+      "The core idea",
+      "Configuring it",
+      "API",
+      "Graph-enhanced retrieval",
+      "Evolution ↔ graph integration",
+      "What this deliberately does not do"
+    ],
+    "excerpt": "Memory Graph The core idea Alongside a memory's own content/versions, Memorie can model typed, directed relationships between memories (spec sections 27 28): is an open string union — the well known values above are provided for convenience, but applications are free to define their own (spec section 27: \"Relationship types must be extensible\"). A is, like every secondary store in Memorie, a non aut"
+  },
+  {
+    "slug": "introduction",
+    "title": "Introduction",
+    "description": "Memorie is a reusable memory infrastructure layer — memory that evolves, versions, and is traceable over time.",
+    "headings": [
+      "Why Memorie",
+      "Core concepts",
+      "Packages"
+    ],
+    "excerpt": "Introduction Memorie is a reusable memory infrastructure layer — not a chatbot, not an AI assistant, not a vector database wrapper. Any application, AI system, SaaS platform, or knowledge system can use it to store memory that evolves, versions, and is traceable over time , independent of which database or AI vendor sits underneath it. Why Memorie Most \"AI memory\" libraries model memory as , with th"
+  },
+  {
+    "slug": "MAINTENANCE",
+    "title": "Maintenance",
+    "description": "Reindexing, reconciliation, backup, and restore for drifted projections.",
+    "headings": [
+      "Reindexing (spec section 38)",
+      "Reconciliation (spec section 37)",
+      "Why only search/vector, and only sometimes",
+      "Backup / restore (spec sections 51-53)",
+      "includeRelations requires listRelations()"
+    ],
+    "excerpt": "Maintenance: Reindexing, Reconciliation, Backup Reindexing (spec section 38) Unconditionally rebuilds the / projections from canonical data by paging through every memory and re running /embed and for each. Pass or to restrict which projection gets rebuilt. This is exactly what uses internally for entries it finds missing — is the \"just rebuild everything\" version, is the \"tell me what's wrong, op"
+  },
+  {
+    "slug": "MEMORY-EVOLUTION",
+    "title": "Memory evolution",
+    "description": "Identity vs. state vs. version, and the ingest pipeline: identity resolution, duplicates, and conflicts.",
+    "headings": [
+      "The core idea",
+      "Two levels of API",
+      "Configuring the pipeline",
+      "Identity resolution",
+      "Duplicate detection",
+      "Conflict detection",
+      "Resolving conflicts",
+      "Consolidation",
+      "What this deliberately does not do"
+    ],
+    "excerpt": "Memory Evolution The core idea A memory's is a stable identity. Its / /scoring can change over time without losing what it used to say. This is the canonical example from the design brief, and it's exactly what verifies: Two levels of API — the primitive. You already know which memory this update is about. Validates the patch, checks the lifecycle transition if changes, applies optional optimistic"
+  },
+  {
+    "slug": "MEMORY-LIFECYCLE",
+    "title": "Memory lifecycle",
+    "description": "The memory state machine and which transitions are valid.",
+    "headings": [
+      "States",
+      "Transition table",
+      "How state changes relate to versioning"
+    ],
+    "excerpt": "Memory Lifecycle A moves through an explicit state machine, implemented in . Invalid transitions throw rather than silently succeeding (spec section 12) — this is a deliberate choice: a memory system that lets succeed silently makes deletion meaningless. States — normal, current, in force memory. — set automatically after a content/scoring change via / , unless the caller explicitly sets a differe"
+  },
+  {
+    "slug": "OBSERVABILITY",
+    "title": "Observability",
+    "description": "Logger, MetricsProvider, and Tracer hooks — what's tracked and how to plug in a provider.",
+    "headings": [
+      "Provider-independent interfaces",
+      "What's tracked",
+      "What's logged",
+      "Tracing",
+      "What's traced"
+    ],
+    "excerpt": "Observability Provider independent interfaces The core has zero mandatory dependency on any logging/metrics vendor (spec section 59), mirroring the same \"AI independence\" principle applied to embeddings (spec section 19). Two small interfaces in : Wire in whatever you already use — pino/winston/console for ; StatsD/Prometheus/OpenTelemetry metrics/a test double for : Both are independently optiona"
+  },
+  {
+    "slug": "quickstart",
+    "title": "Quickstart",
+    "description": "Install Memorie and create, evolve, and search your first memory in under five minutes.",
+    "headings": [
+      "Install",
+      "Create an engine",
+      "Add, evolve, and time-travel",
+      "Upgrade search without changing the call site",
+      "Go local-first with SQLite",
+      "Development commands",
+      "Before you run npm test locally"
+    ],
+    "excerpt": "Quickstart Install Create an engine Add, evolve, and time travel Every call preserves the prior state as an immutable version — nothing is ever overwritten. See Memory evolution for how identity, state, and version relate, and Memory lifecycle for the state machine. Upgrade search without changing the call site Real full text search with (bm25/FTS5) instead of the built in keyword fallback: Semant"
+  },
+  {
+    "slug": "SEARCH",
+    "title": "Hybrid search",
+    "description": "The structured + keyword + semantic + relationship search pipeline, and how ranking works.",
+    "headings": [
+      "engine.search(query)",
+      "The hybrid pipeline",
+      "Ranking weights",
+      "SearchStore adapters",
+      "VectorStore + EmbeddingProvider adapters",
+      "Not yet implemented"
+    ],
+    "excerpt": "Search Returns , each sorted by descending. is in . tells you which retrieval paths contributed ( , , and in later phases / ). Structured filters ( , / / ) always apply regardless of whether (free text) is given — you can call with only filters to get a scored, ranked list of everything matching a scope (spec section 24). The hybrid pipeline Implemented in , matching the pipeline shape from spec s"
+  },
+  {
+    "slug": "SECURITY",
+    "title": "Security",
+    "description": "Tenant isolation, authorization hooks, redaction, and encryption-at-rest.",
+    "headings": [
+      "Implemented today",
+      "Designed, not yet implemented"
+    ],
+    "excerpt": "Security Memorie treats memory as potentially sensitive application data. Implemented today Tenant isolation. / / scoping is enforced in every adapter's / and covered by the adapter contract test suite ( , \"enforces tenant isolation\"). There is currently no cross tenant query path in the core API — callers must always pass a scope. No content in error messages. Typed errors ( ) carry structured (id"
+  }
+]

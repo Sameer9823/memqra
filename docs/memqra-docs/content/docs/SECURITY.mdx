@@ -1,0 +1,133 @@
+---
+title: "Security"
+description: "Tenant isolation, authorization hooks, redaction, and encryption-at-rest."
+---
+
+# Security
+
+Memorie treats memory as potentially sensitive application data.
+
+## Implemented today
+
+- **Tenant isolation.** `tenantId`/`namespace`/`subjectId` scoping is
+  enforced in every adapter's `list()`/`count()` and covered by the
+  adapter contract test suite (`runMemoryStoreContractTests`, "enforces
+  tenant isolation"). There is currently no cross-tenant query path in
+  the core API — callers must always pass a scope.
+- **No content in error messages.** Typed errors (`packages/types/src/errors.ts`)
+  carry structured `details` (ids, versions) but the engine does not
+  interpolate memory `content` into error messages.
+- **Typed, explicit lifecycle.** `deleted` is a terminal state; nothing
+  in the core allows reviving a deleted memory ([docs/MEMORY-LIFECYCLE](/docs/MEMORY-LIFECYCLE)).
+- **Authorization hooks** (spec section 43, Phase 7): `authorizeRead`,
+  `authorizeWrite`, `authorizeDelete` on `MemoryEngineConfig.security`.
+  Each is `(context: AuthorizationContext) => boolean | Promise<boolean>`,
+  where `context` carries `operation`, `tenantId`/`namespace`/`subjectId`,
+  and (for single-memory operations) `memoryId`. Returning/resolving
+  `false` throws `AuthorizationError` **before any store is touched** —
+  denial is checked first, so a synchronous `false` short-circuits ahead
+  of canonical or secondary store access.
+
+  | Hook | Checked by |
+  |---|---|
+  | `authorizeRead` | `get()`, `recall()`, `list()`, `count()`, `search()` |
+  | `authorizeWrite` | `add()`/`remember()`, `update()`/`evolve()` |
+  | `authorizeDelete` | `delete()` |
+
+  ```ts
+  const memory = createMemoryEngine({
+    memoryStore,
+    security: {
+      authorizeRead: (ctx) => ctx.tenantId === currentUser.tenantId,
+      authorizeWrite: (ctx) => currentUser.canWrite(ctx.namespace),
+      authorizeDelete: async (ctx) => currentUser.isAdmin,
+    },
+  });
+  ```
+
+  All three are optional independently — configure only the ones you
+  need; unconfigured operations proceed unchecked, same as before this
+  was added.
+
+- **No memory content in logs by default.** The engine's own structured
+  logging (`observability.logger`, see below) never passes `content` in
+  the `context` object it logs — only ids, namespace/subjectId/type,
+  and counts. A `Logger` implementation that does something naive with
+  `context` (e.g. `console.log(message, context)`) still won't leak
+  memory content, because the engine never hands it any.
+
+- **Redaction hook.** `security.redact` on `MemoryEngineConfig`
+  (`RedactFn` in `@memorie/types`): `(memory, context) => Memory`,
+  applied to every memory leaving a read-path operation —
+  `get()`/`recall()`/`list()`/`search()`/`export()` — after
+  authorization passes. Unlike `authorizeRead`, which is all-or-nothing
+  (deny the whole read), `redact` lets the read through while masking
+  parts of the result — e.g. blanking `content` or stripping a
+  `metadata` key for callers who are allowed to know a memory exists
+  but shouldn't see its raw value:
+
+  ```ts
+  const memory = createMemoryEngine({
+    memoryStore,
+    security: {
+      redact: (memory, ctx) =>
+        ctx.namespace === "medical" && !currentUser.isClinician
+          ? { ...memory, content: "[redacted]" }
+          : memory,
+    },
+  });
+  ```
+
+  It must return a new object rather than mutating `memory` in place —
+  the engine may reuse the same object for a cache write or hand it to
+  a second caller, so an in-place mutation would leak the redaction (or
+  the original) across callers. `export()` also runs through `redact`
+  when configured; note that a redacted export is lossy by design, so
+  `import()`-ing it back will not restore the original content —
+  export unredacted data if you need a faithful backup.
+
+- **Encryption at rest.** `@memorie/storage-security` provides
+  `EncryptedMemoryStore`, a `MemoryStore` decorator that transparently
+  encrypts `content` before it reaches any wrapped adapter (SQLite,
+  Postgres, in-memory, or a future one) and decrypts it on the way
+  back out — the engine, `SearchStore`/`VectorStore` indexing, and
+  everything else built against the plain `MemoryStore` contract keeps
+  working unmodified, because only what physically reaches disk is
+  ciphertext:
+
+  ```ts
+  import { AesGcmCipher, EncryptedMemoryStore } from "@memorie/storage-security";
+
+  const memoryStore = new EncryptedMemoryStore(new PostgresStore(pool), {
+    cipher: new AesGcmCipher(process.env.MEMORIE_ENCRYPTION_KEY!),
+  });
+  const memory = createMemoryEngine({ memoryStore });
+  ```
+
+  `AesGcmCipher` implements AES-256-GCM using only `node:crypto` — no
+  external dependency, a fresh random IV per `encrypt()` call, and
+  `decrypt()` both decrypts and authenticates in one step (it throws on
+  tampered or wrong-key ciphertext rather than returning garbage).
+  `Cipher` is a small interface, so a KMS- or HSM-backed implementation
+  can be swapped in without changing `EncryptedMemoryStore`.
+
+  Scope: only `content` is encrypted. `metadata` is left as-is, because
+  several adapters use it for structured filtering
+  (`list()`/`count()`/keyword search) and encrypting it would break
+  that — put anything needing the same protection into `content`
+  instead. Wrapping a `TransactionalMemoryStore` loses `transaction()`;
+  the decorator implements the plain `MemoryStore` surface only. It's
+  verified against the shared `runMemoryStoreContractTests` suite
+  (`packages/storage-security/test/encrypted-memory-store.contract.test.ts`),
+  so it's a fully conformant `MemoryStore`, not a partial one.
+
+## Designed, not yet implemented
+
+None outstanding from the original design brief's core security items
+(spec section 43) — tenant isolation, authorization hooks, redaction,
+and encryption at rest are all implemented above. Field-level
+searchable encryption (querying encrypted `content` without decrypting
+it first) is out of scope; `EncryptedMemoryStore` decrypts before
+handing memories to `SearchStore`/`VectorStore` indexing, so keyword
+and semantic search still work, but the underlying index/vector store
+itself does not encrypt what it indexes.

@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/types" },
+    { "path": "packages/storage" },
+    { "path": "packages/storage-memory" },
+    { "path": "packages/storage-sqlite" },
+    { "path": "packages/storage-postgres" },
+    { "path": "packages/cache-redis" },
+    { "path": "packages/search-sqlite" },
+    { "path": "packages/embeddings" },
+    { "path": "packages/vector-memory" },
+    { "path": "packages/core" }
+  ]
+}

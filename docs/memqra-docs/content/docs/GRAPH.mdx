@@ -1,0 +1,128 @@
+---
+title: "Memory graph"
+description: "Typed, directed relationships between memories, multi-hop traversal, and the relationship search signal."
+---
+
+# Memory Graph
+
+## The core idea
+
+Alongside a memory's own content/versions, Memorie can model typed,
+directed **relationships between memories** (spec sections 27-28):
+
+```
+supports | contradicts | supersedes | derived_from | related_to |
+depends_on | caused_by | <your own string>
+```
+
+`RelationType` is an open string union — the well-known values above
+are provided for convenience, but applications are free to define their
+own (spec section 27: "Relationship types must be extensible").
+
+A `GraphStore` is, like every secondary store in Memorie, a
+**non-authoritative projection** ([docs/ARCHITECTURE](/docs/ARCHITECTURE)): it's fine to
+rebuild it from scratch as long as the relations themselves are
+recorded somewhere durable by the caller (or, as below, by the engine
+itself as a side effect of evolution).
+
+## Configuring it
+
+```ts
+import { InMemoryGraphStore } from "@memorie/storage-memory";
+
+const graphStore = new InMemoryGraphStore((id) => memoryStore.get(id));
+
+const memory = createMemoryEngine({
+  memoryStore,
+  versionStore,
+  graphStore,
+});
+```
+
+`InMemoryGraphStore` stores only relation records (id/from/to/type/
+weight/metadata) — it resolves full `Memory` objects on demand via the
+function you pass it, typically `memoryStore.get`. This mirrors how a
+real adapter (e.g. Neo4j) would work: the graph database holds ids and
+relationship metadata; canonical content still lives in the
+`MemoryStore`.
+
+## API
+
+```ts
+const relation = await memory.relate(fromId, toId, "supports", {
+  weight: 0.8,
+  metadata: { note: "same evidence" },
+});
+
+await memory.related(fromId, { direction: "outgoing", types: ["supports"] });
+// => Memory[]
+
+await memory.traverse(fromId, { direction: "outgoing", maxDepth: 2 });
+// => Memory[], multi-hop
+
+await memory.unrelate(relation.id);
+```
+
+All four throw `UnsupportedCapabilityError` if no `GraphStore` is
+configured — never silently returning `[]` (spec section 77 / "no fake
+implementations": a `GraphStore`-shaped no-op that always returns
+nothing would hide the fact that relationships aren't actually being
+tracked).
+
+`GraphQueryOptions`/`TraversalOptions` (`@memorie/types`) support
+`direction` (`"outgoing" | "incoming" | "both"`), `types`, `minWeight`,
+`limit`, and (for traversal) `maxDepth`.
+
+## Graph-enhanced retrieval
+
+`engine.search()` accepts an optional `relatedTo` (and `relationTypes`)
+on `SearchQuery`. When set alongside a configured `GraphStore`, memories
+related to `relatedTo` contribute a `"relationship"` signal into the
+same hybrid ranking pipeline that scores structured/keyword/semantic
+candidates ([docs/SEARCH](/docs/SEARCH)), weighted by `RankingWeights.relationship`
+(default `0.05`, configurable):
+
+```ts
+await memory.search({
+  namespace: "users",
+  subjectId: "u1",
+  query: "TypeScript",
+  relatedTo: someMemoryId,
+});
+```
+
+Without `relatedTo` (or without a `GraphStore` configured), there is
+simply no `"relationship"` candidate stage — same graceful degradation
+as every other optional signal ([docs/ARCHITECTURE](/docs/ARCHITECTURE)).
+
+## Evolution ↔ graph integration
+
+When both a `GraphStore` and the evolution pipeline ([docs/MEMORY-EVOLUTION](/docs/MEMORY-EVOLUTION))
+are configured, the engine records relations as a side effect of
+evolution outcomes, best-effort (no-op without a `GraphStore`):
+
+| Evolution event | Relation recorded |
+|---|---|
+| `ingest()` raises a conflict | `contradicts` from the existing memory to the new one |
+| `resolveConflict()` with a superseding strategy | `supersedes` from the winner to the loser |
+| `resolveConflict()` with `"merge"`, or `consolidate()` | `derived_from` from the new merged memory to each source |
+
+This means a `GraphStore`, once configured, starts accumulating a real
+provenance/contradiction graph automatically — you don't have to call
+`relate()` yourself for outcomes the engine already knows about.
+
+## What this deliberately does not do
+
+- No real graph-database adapter (Neo4j, ArangoDB) ships yet — that's
+  Phase 6 (Infrastructure) per the roadmap. `InMemoryGraphStore` is the
+  reference implementation and the thing every future adapter must pass
+  `runGraphStoreContractTests` against.
+- `traverse()` does not rank or score results by path relevance — it
+  returns the reachable set within `maxDepth`, in discovery order. Path
+  ranking is left to the caller (or a future `MemoryIntelligenceProvider`-
+  backed traversal strategy).
+
+See `packages/storage/src/contract-tests/graph-store.contract.ts` for
+the adapter contract, `packages/core/test/graph.test.ts` for engine-level
+behavior, and `examples/10-memory-graph/index.mjs` for a runnable
+walkthrough.

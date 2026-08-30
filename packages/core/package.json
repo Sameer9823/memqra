@@ -1,0 +1,50 @@
+{
+  "name": "@memorie/core",
+  "version": "0.1.0",
+  "description": "Memorie: universal memory infrastructure engine. Core orchestration layer.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sameer9823/memqra.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://memqra.vercel.app/",
+  "bugs": "https://github.com/Sameer9823/memqra/issues",
+  "author": "Memorie Contributors",
+  "keywords": [
+    "memorie",
+    "memory",
+    "ai-memory",
+    "agent-memory",
+    "memory-engine"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@memorie/types": "0.1.0",
+    "@memorie/storage": "0.1.0"
+  },
+  "devDependencies": {
+    "@memorie/storage-memory": "0.1.0",
+    "@memorie/search-sqlite": "0.1.0",
+    "@memorie/vector-memory": "0.1.0",
+    "@memorie/embeddings": "0.1.0",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

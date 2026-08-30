@@ -1,0 +1,140 @@
+---
+title: "Observability"
+description: "Logger, MetricsProvider, and Tracer hooks — what's tracked and how to plug in a provider."
+---
+
+# Observability
+
+## Provider-independent interfaces
+
+The core has zero mandatory dependency on any logging/metrics vendor
+(spec section 59), mirroring the same "AI independence" principle
+applied to embeddings (spec section 19). Two small interfaces in
+`@memorie/types`:
+
+```ts
+export interface Logger {
+  debug(message: string, context?: Record<string, unknown>): void;
+  info(message: string, context?: Record<string, unknown>): void;
+  warn(message: string, context?: Record<string, unknown>): void;
+  error(message: string, context?: Record<string, unknown>): void;
+}
+
+export interface MetricsProvider {
+  increment(name: string, value?: number, tags?: Record<string, string>): void;
+  gauge(name: string, value: number, tags?: Record<string, string>): void;
+  histogram(name: string, value: number, tags?: Record<string, string>): void;
+}
+```
+
+Wire in whatever you already use — pino/winston/console for `Logger`;
+StatsD/Prometheus/OpenTelemetry metrics/a test double for
+`MetricsProvider`:
+
+```ts
+const memory = createMemoryEngine({
+  memoryStore,
+  observability: { logger: myPinoAdapter, metrics: myStatsdAdapter },
+});
+```
+
+Both are independently optional. Without them configured, every logging/
+metrics call inside the engine is a no-op — same behavior as before this
+was added.
+
+## What's tracked
+
+| Metric | Emitted by |
+|---|---|
+| `memorie.memory.created` (counter) | `add()` |
+| `memorie.memory.updated` (counter) | `update()` |
+| `memorie.memory.deleted` (counter) | `delete()` |
+| `memorie.get.latency_ms` (histogram) | `get()` |
+| `memorie.search.latency_ms` (histogram) | `search()` |
+| `memorie.cache.hit` / `memorie.cache.miss` (counters) | `get()`, when a `CacheStore` is configured |
+| `memorie.conflict.detected` (counter) | `ingest()`, when a conflict is raised |
+| `memorie.conflict.resolved` (counter, tagged by strategy) | `resolveConflict()`, non-merge strategies |
+| `memorie.consolidation` (counter) | `resolveConflict()` with `"merge"`, and `consolidate()` |
+
+This is the metric set named in spec section 59 minus "retrieval
+latency" duplicated as both a generic name and `get()`'s specific one —
+`memorie.get.latency_ms` *is* retrieval latency.
+
+## What's logged
+
+Debug-level structured logs on `add()`/`update()`/`delete()`, info-level
+on `reindex()`/`reconcile()`/`export()`/`import()` completion. **Never
+memory `content`** — only ids, `namespace`/`subjectId`/`type`, versions,
+and counts (spec section 43/59: "Never log full memory contents by
+default"). See [docs/SECURITY](/docs/SECURITY) for the reasoning and
+`packages/core/test/observability-security.test.ts` for a test that
+asserts a log entry's `context` never contains a value that was only in
+`content`.
+
+## Tracing
+
+The third signal from spec section 59 ("provider-independent interfaces
+for logging, metrics, tracing"). Same optional/no-op pattern as `Logger`
+and `MetricsProvider`: two small interfaces in `@memorie/types`,
+
+```ts
+export interface Span {
+  setAttribute(key: string, value: string | number | boolean): void;
+  recordException(error: unknown): void;
+  end(): void;
+}
+
+export interface Tracer {
+  startSpan(
+    name: string,
+    options?: { attributes?: Record<string, string | number | boolean>; parent?: Span },
+  ): Span;
+}
+```
+
+wired in the same way as the other two:
+
+```ts
+const memory = createMemoryEngine({
+  memoryStore,
+  observability: { logger: myPinoAdapter, metrics: myStatsdAdapter, tracer: myOtelAdapter },
+});
+```
+
+Without a `tracer` configured, `startSpan()` calls inside the engine
+return a shared no-op `Span` — every method on it does nothing — so
+there's no branch at each call site and no cost when tracing isn't
+wired in.
+
+`options.parent` lets a caller nest an engine operation's span under a
+span it already started itself, for tracers that support parent/child
+spans (e.g. OpenTelemetry). Implementations that don't support nesting
+can ignore it and start a new root span.
+
+### What's traced
+
+One span per call, named `memorie.<operation>`, covering the same
+operations already covered by metrics/logs above: `add`, `get`,
+`update`, `delete`, `search`, `ingest`, `resolveConflict`,
+`consolidate`. Each span:
+
+- gets scope attributes up front where known (e.g. `namespace`, `type`,
+  or the memory/conflict id being operated on);
+- gets result attributes set once the operation succeeds (e.g.
+  `memory.id` on `add()`, `result.count` on `search()`, `cache.hit` on
+  `get()`);
+- has `recordException()` called with the thrown error if the operation
+  fails, before the error is rethrown;
+- is always `end()`-ed, success or failure, via `try/finally` — the same
+  shape as the `get()`/`search()` latency histograms above.
+
+Other read/maintenance methods (`list`, `count`, `history`, `related`,
+`reindex`, `reconcile`, `export`, `import`, ...) are not yet
+individually spanned — a caller wrapping its own span around a call to
+one of these captures it just fine via `options.parent`, but the engine
+itself doesn't emit a nested child span for it. Extending coverage to
+those follows the exact same shape as the operations above.
+
+See `packages/core/test/observability-tracing.test.ts` for the
+no-op-without-a-tracer guarantee and the span/attribute/exception
+behavior above.

@@ -1,0 +1,49 @@
+{
+  "name": "@memorie/storage-postgres",
+  "version": "0.1.0",
+  "description": "PostgreSQL MemoryStore, VersionStore, and ConflictStore adapter for Memorie.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sameer9823/memqra.git",
+    "directory": "packages/storage-postgres"
+  },
+  "homepage": "https://memqra.vercel.app/",
+  "bugs": "https://github.com/Sameer9823/memqra/issues",
+  "author": "Memorie Contributors",
+  "keywords": [
+    "memorie",
+    "memory",
+    "storage",
+    "postgres",
+    "postgresql"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist *.tsbuildinfo",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@memorie/types": "0.1.0",
+    "@memorie/storage": "0.1.0",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.11.10",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

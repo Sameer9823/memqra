@@ -1,0 +1,34 @@
+# Examples
+
+Run `npm install && npm run build` from the repo root first (these
+examples import from each package's `dist/` output). Then:
+
+```bash
+node examples/01-basic-memory/index.mjs
+node examples/02-inmemory/index.mjs
+node examples/03-sqlite/index.mjs
+node examples/05-vector-search/index.mjs
+node examples/06-hybrid-search/index.mjs
+node examples/07-memory-evolution/index.mjs
+node examples/08-memory-history/index.mjs
+node examples/09-conflict-resolution/index.mjs
+node examples/10-memory-graph/index.mjs
+node examples/11-postgres-redis/index.mjs
+```
+
+| Example | Demonstrates |
+|---|---|
+| `01-basic-memory` | Minimal add/get/update/delete flow. |
+| `02-inmemory` | Multi-tenant scoping and filtering with `InMemoryStore`, using "devices"/"organizations" as the domain (not users/chat). |
+| `03-sqlite` | Local-first persistent storage via `@memorie/storage-sqlite`. |
+| `05-vector-search` | Semantic search via `@memorie/vector-memory` + `@memorie/embeddings` (dependency-free, offline embedding). |
+| `06-hybrid-search` | The same query with and without a `SearchStore` configured — graceful degradation vs. real FTS5/bm25 relevance. |
+| `07-memory-evolution` | The spec's canonical "user prefers TypeScript" evolution example, end to end. |
+| `08-memory-history` | Time-travel queries with `getAt()`. |
+| `09-conflict-resolution` | The Phase 4 `ingest()` pipeline: identity resolution, duplicate detection, conflict detection via a `MemoryIntelligenceProvider`, and `resolveConflict()`. |
+| `10-memory-graph` | The Phase 5 memory graph: `relate()`/`related()`/`traverse()`, and the `"relationship"` signal in `search({ relatedTo })`. |
+| `11-postgres-redis` | The Phase 6 infrastructure adapters: `@memorie/storage-postgres` as the canonical store (with real transactions) and `@memorie/cache-redis` as a cache-aside `CacheStore`. **Requires a running PostgreSQL + Redis** — see the file header for connection string env vars. |
+
+Numbering follows the fuller example set proposed in the original design
+brief; only the examples relevant to what's implemented so far exist
+today (no custom-adapter examples yet — those depend on later phases).

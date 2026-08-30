@@ -1,0 +1,46 @@
+{
+  "name": "@memorie/vector-memory",
+  "version": "0.1.0",
+  "description": "In-memory brute-force cosine-similarity VectorStore for Memorie. Reference implementation, tests, and small-scale local use.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sameer9823/memqra.git",
+    "directory": "packages/vector-memory"
+  },
+  "homepage": "https://memqra.vercel.app/",
+  "bugs": "https://github.com/Sameer9823/memqra/issues",
+  "author": "Memorie Contributors",
+  "keywords": [
+    "memorie",
+    "memory",
+    "vector-search",
+    "embeddings",
+    "semantic-search"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@memorie/types": "0.1.0",
+    "@memorie/storage": "0.1.0"
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}

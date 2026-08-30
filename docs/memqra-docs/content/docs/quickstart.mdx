@@ -1,0 +1,148 @@
+---
+title: "Quickstart"
+description: "Install Memorie and create, evolve, and search your first memory in under five minutes."
+---
+
+# Quickstart
+
+## Install
+
+```bash
+npm install @memorie/core @memorie/storage-memory
+```
+
+## Create an engine
+
+```ts
+import { createMemoryEngine } from "@memorie/core";
+import { InMemoryStore, InMemoryVersionStore } from "@memorie/storage-memory";
+
+const memory = createMemoryEngine({
+  memoryStore: new InMemoryStore(),
+  versionStore: new InMemoryVersionStore(),
+});
+```
+
+## Add, evolve, and time-travel
+
+```ts
+const m1 = await memory.add({
+  namespace: "users",
+  subjectId: "user_123",
+  type: "preference",
+  content: "Prefers TypeScript.",
+});
+
+const m2 = await memory.evolve(m1.id, {
+  content: "Prefers TypeScript for application development.",
+});
+
+const history = await memory.history(m1.id);
+// [{ version: 1, snapshot: { content: "Prefers TypeScript." }, ... },
+//  { version: 2, snapshot: { content: "Prefers TypeScript for application development." }, ... }]
+
+const asOfYesterday = await memory.getAt(m1.id, new Date(Date.now() - 86_400_000));
+
+const results = await memory.search({
+  namespace: "users",
+  subjectId: "user_123",
+  query: "typescript",
+});
+```
+
+Every `evolve()` call preserves the prior state as an immutable version —
+nothing is ever overwritten. See [Memory evolution](/docs/MEMORY-EVOLUTION)
+for how identity, state, and version relate, and
+[Memory lifecycle](/docs/MEMORY-LIFECYCLE) for the state machine.
+
+## Upgrade search without changing the call site
+
+Real full-text search with `@memorie/search-sqlite` (bm25/FTS5) instead of
+the built-in keyword fallback:
+
+```ts
+import { SqliteSearchStore } from "@memorie/search-sqlite";
+
+const memory = createMemoryEngine({
+  memoryStore: new InMemoryStore(),
+  versionStore: new InMemoryVersionStore(),
+  searchStore: new SqliteSearchStore(":memory:"),
+});
+```
+
+Semantic search — a `VectorStore` + `EmbeddingProvider` add a "semantic"
+signal to the same `search()` call, no other code changes required:
+
+```ts
+import { InMemoryVectorStore } from "@memorie/vector-memory";
+import { HashEmbeddingProvider } from "@memorie/embeddings";
+
+const memory = createMemoryEngine({
+  memoryStore: new InMemoryStore(),
+  versionStore: new InMemoryVersionStore(),
+  vectorStore: new InMemoryVectorStore(),
+  embeddingProvider: new HashEmbeddingProvider(), // swap in a real embedding model for production
+});
+```
+
+Read more about how signals are combined and ranked in
+[Hybrid search](/docs/SEARCH).
+
+## Go local-first with SQLite
+
+```ts
+import { createMemoryEngine } from "@memorie/core";
+import { SqliteStore, SqliteVersionStore } from "@memorie/storage-sqlite";
+
+const store = new SqliteStore("./memorie.db");
+const memory = createMemoryEngine({
+  memoryStore: store,
+  versionStore: new SqliteVersionStore(store.raw),
+});
+```
+
+More runnable examples live in [Examples](/docs/EXAMPLES), including the
+PostgreSQL + Redis production setup.
+
+## Development commands
+
+```bash
+npm install
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+All four commands are expected to be green. `npm test` runs contract
+tests for every `MemoryStore`/`SearchStore`/`VectorStore`/`CacheStore`/
+`ConflictStore`/`GraphStore` implementation, plus the `MemoryEngine`
+orchestration tests. The PostgreSQL and Redis adapters need a live local
+instance — see [Storage adapters](/docs/ADAPTERS).
+
+### Before you run `npm test` locally
+
+Two things trip people up on a fresh machine — neither is a bug,
+both are one-time setup:
+
+- **Use a Node.js LTS release (18, 20, or 22).** `@memorie/storage-sqlite`
+  and `@memorie/search-sqlite` depend on `better-sqlite3`, a native
+  addon. Prebuilt binaries are published for LTS Node versions; on a
+  very new or non-LTS version (e.g. Node 24.x on Windows) there may be
+  no prebuilt binary yet, and `npm install` silently falls back to a
+  source build that needs Python + a C++ toolchain. If tests fail with
+  `Could not locate the bindings file`, switch to an LTS Node version
+  and reinstall (`rm -rf node_modules && npm install`), or install the
+  build toolchain and run `npm rebuild better-sqlite3`.
+- **Start PostgreSQL and Redis before testing `@memorie/storage-postgres`
+  / `@memorie/cache-redis`.** These packages' tests connect to a real
+  local instance — `ECONNREFUSED 127.0.0.1:5432` or `:6379` just means
+  nothing is listening yet. The quickest fix is Docker:
+
+  ```bash
+  docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=memorie_test postgres:16
+  docker run -d -p 6379:6379 redis:7
+  ```
+
+  Everything else in the suite (148 of the 197 tests) has no external
+  dependency and runs regardless.

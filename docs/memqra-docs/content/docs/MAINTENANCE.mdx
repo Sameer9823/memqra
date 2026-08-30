@@ -1,0 +1,100 @@
+---
+title: "Maintenance"
+description: "Reindexing, reconciliation, backup, and restore for drifted projections."
+---
+
+# Maintenance: Reindexing, Reconciliation, Backup
+
+## Reindexing (spec section 38)
+
+```ts
+const report = await memory.reindex();
+// => { searchReindexed: number, vectorReindexed: number }
+```
+
+Unconditionally rebuilds the `SearchStore`/`VectorStore` projections
+from canonical `MemoryStore` data by paging through every memory and
+re-running `index()`/embed-and-`upsert()` for each. Pass
+`{ search: false }` or `{ vector: false }` to restrict which projection
+gets rebuilt. This is exactly what `reconcile({ repair: true })` uses
+internally for entries it finds missing — `reindex()` is the "just
+rebuild everything" version, `reconcile()` is the "tell me what's wrong,
+optionally fix only that" version.
+
+## Reconciliation (spec section 37)
+
+```ts
+const report = await memory.reconcile();
+// => { checked: number, issues: ReconciliationIssue[] }
+
+await memory.reconcile({ repair: true });
+// => also fixes what it finds: re-indexes "missing" entries,
+//    deletes "orphaned" ones, and reports how many were repaired
+```
+
+Detects two kinds of drift per configured projection:
+
+- **`missing`** — a canonical memory that isn't present in the
+  projection (e.g. a crash between `add()`'s canonical write and its
+  `searchStore.index()` call).
+- **`orphaned`** — an entry in the projection that no longer
+  corresponds to any canonical memory (e.g. something was deleted
+  directly against the `MemoryStore`, bypassing `engine.delete()`).
+
+### Why only search/vector, and only sometimes
+
+A store can only be checked when it both (a) is configured and (b)
+implements the **optional** `listIds()` method on `VectorStore`/
+`SearchStore`. Detecting drift requires enumerating everything currently
+in the projection — without a way to list its contents, there's no
+honest way to compute `missing`/`orphaned`, so `reconcile()` silently
+skips that store rather than fabricating a result (spec section 77).
+`InMemoryVectorStore` and `SqliteSearchStore` both implement it; a
+custom adapter can opt in the same way.
+
+`GraphStore` and `CacheStore` are intentionally not reconciled:
+`CacheStore` is never authoritative and self-heals via TTL/invalidation
+(see [docs/ARCHITECTURE](/docs/ARCHITECTURE)), and relation-level drift detection for
+`GraphStore` would need a different shape of check (relations whose
+endpoints no longer exist, not "missing/orphaned ids") that isn't
+implemented yet.
+
+## Backup / restore (spec sections 51-53)
+
+```ts
+const snapshot = await memory.export({
+  namespace: "users",
+  subjectId: "u1",
+  includeVersions: true,   // requires a VersionStore
+  includeRelations: true,  // requires a GraphStore with listRelations()
+  includeConflicts: true,  // requires a ConflictStore
+});
+// => { version: 1, exportedAt, memories, versions?, relations?, conflicts? }
+
+const result = await memory.import(snapshot, { onConflict: "skip" | "overwrite" });
+// => { imported, skipped, versionsImported, relationsImported, conflictsImported }
+```
+
+`export()` is JSON-shaped by design; for JSONL, serialize
+`snapshot.memories.map(m => JSON.stringify(m)).join("\n")` (and the same
+for `versions`/`relations`/`conflicts` if included) — no separate JSONL
+codec is needed since the mapping is direct.
+
+`import()` re-runs every memory through the normal `add()` path (or
+`update()` when `onConflict: "overwrite"` and the id already exists) —
+not a raw bulk-insert bypass, so validation/versioning/indexing all
+still apply. `onConflict: "skip"` (the default) leaves any existing
+memory with the same id untouched.
+
+### `includeRelations` requires `listRelations()`
+
+Like reconciliation, exporting relations needs a way to enumerate them.
+`getRelated()`/`traverse()` only return the endpoint `Memory` objects,
+not the relation *records* (id/type/weight/metadata) — so `GraphStore`
+has an optional `listRelations()` for this, implemented by
+`InMemoryGraphStore`. Without it, `export()` simply omits `relations`
+rather than exporting something incomplete.
+
+See `packages/core/test/maintenance.test.ts` and
+`packages/core/test/backup.test.ts` for the full set of tested
+scenarios.

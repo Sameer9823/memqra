@@ -1,0 +1,38 @@
+{
+  "name": "memorie",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Universal Memory Infrastructure for Modern Software",
+  "license": "MIT",
+  "author": "Memorie Contributors",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sameer9823/memqra.git"
+  },
+  "homepage": "https://memqra.vercel.app/",
+  "bugs": "https://github.com/Sameer9823/memqra/issues",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "lint": "eslint packages",
+    "typecheck": "tsc -b --force",
+    "test": "vitest run",
+    "benchmark": "node scripts/benchmark.mjs",
+    "clean": "npm run clean --workspaces --if-present && rimraf coverage",
+    "publish:all": "npm run build && npm publish --workspaces --if-present --access public"
+  },
+  "devDependencies": {
+    "eslint": "^9.13.0",
+    "prettier": "^3.3.3",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.15.0",
+    "vitest": "^2.1.4"
+  }
+}

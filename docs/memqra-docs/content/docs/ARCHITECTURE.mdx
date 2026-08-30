@@ -1,0 +1,151 @@
+---
+title: "Architecture"
+description: "The canonical-store-plus-projections model and why memory needs its own infrastructure layer."
+---
+
+# Architecture
+
+## Why memory needs its own infrastructure layer
+
+Most "AI memory" tools collapse everything into one pipeline:
+
+```
+text -> embedding -> vector DB -> similarity search
+```
+
+That pipeline treats the vector database as the source of truth. It works
+for simple recall, but it can't answer "what did we believe last week?",
+"where did this claim come from?", "which memory superseded that one?",
+or "let's move from Pinecone to Qdrant without losing history." Those are
+infrastructure questions, not AI questions, and Memorie is built to answer
+them regardless of which (if any) AI vendor is involved.
+
+## Canonical memory + projections
+
+```
+                 Canonical Memory (MemoryStore)
+                       |
+        +--------------+--------------+
+        |              |              |
+      Vector         Search         Graph
+      Index           Index        Projection
+      (optional)     (optional)    (optional)
+        |              |              |
+        +--------------+--------------+
+                       |
+                     Cache (optional)
+```
+
+The `MemoryStore` (backed by SQLite, Postgres, etc.) is the **only**
+authoritative store. Vector, search, graph, and cache stores are
+**projections**: derived, rebuildable, and never a source of truth. This
+buys:
+
+- **Reindexing** — rebuild a vector/search/graph projection from
+  canonical data at any time (`engine` exposes the pieces needed for this
+  today; a dedicated `reindex()` orchestration API is Phase 7).
+- **Vendor independence** — swap Qdrant for Pinecone, or Elasticsearch for
+  OpenSearch, without touching canonical data.
+- **Disaster recovery** — losing a cache or a search index is an
+  inconvenience, not data loss.
+
+A `MemoryEngine` (in `@memorie/core`) is the orchestration layer that
+writes to the canonical store first and then (today: synchronously,
+inline) updates configured projections. See "Consistency model" below.
+
+## Capability-based adapters, not one giant interface
+
+`@memorie/storage` defines narrow interfaces per concern:
+
+- `MemoryStore` — canonical CRUD.
+- `VersionStore` — immutable history.
+- `ProvenanceStore` — where a memory came from.
+- `VectorStore`, `SearchStore`, `GraphStore`, `CacheStore`, `BlobStore` —
+  optional projections.
+
+An adapter package can implement one or several of these. `@memorie/storage-sqlite`,
+for example, implements `MemoryStore` and `VersionStore` but not `VectorStore` —
+and that's fine. `engine.capabilities()` reports which capabilities are
+actually configured so calling code can branch on it instead of guessing.
+
+## The memory model
+
+See `packages/types/src/memory.ts` for the authoritative definitions.
+Five concerns are deliberately kept separate rather than flattened into
+one object:
+
+| Concern | Fields | Why separate |
+|---|---|---|
+| Identity | `id`, `tenantId`, `namespace`, `subjectId`, `type` | Stable across every version; used for scoping/isolation. |
+| State | `state`, `version` | Where this memory is in its lifecycle right now. |
+| Representation | `content`, `metadata` | The canonical payload. Embeddings/search text are *derived* from this, never the memory itself (spec section 50). |
+| Scoring | `importance`, `confidence` | Distinct axes: importance is "how much this matters"; confidence is "how sure we are it's true." An inferred fact can be highly important and low confidence. |
+| Bookkeeping | `createdAt`, `updatedAt`, `lastAccessedAt`, `accessCount`, `expiresAt` | Operational metadata, not memory content. |
+
+Provenance (`MemoryProvenance`) and relationships (`MemoryRelation`) are
+modeled as separate entities rather than inlined fields, because they
+have independent lifecycles and are frequently queried on their own
+(e.g. "show me everything sourced from this document" without loading
+memory content).
+
+## Consistency model
+
+Phase 1 uses synchronous, in-process writes: `engine.add()` writes to the
+canonical `MemoryStore`, then (if configured) indexes into `SearchStore`
+and appends a `MemoryVersion`, all before returning. This is simple and
+correct for a single-process deployment, and it is what's implemented
+and tested today.
+
+The target architecture (Phase 6-7) generalizes this to eventual
+consistency for distributed/hybrid storage: an outbox/event-based
+projection pipeline with retries and a `reconcile()` API that detects and
+repairs drift between canonical data and projections. That is explicitly
+**not yet implemented** — building unnecessary distributed-systems
+complexity before it's needed would violate the "no fake implementations"
+principle just as surely as a stub adapter would.
+
+## Graceful degradation
+
+Every layer is optional except the canonical `MemoryStore`:
+
+- No `VersionStore` configured → `engine.capabilities().versioning` is
+  `false`, and `history()`/`getVersion()`/`getAt()` return empty/null
+  instead of throwing (`NullVersionStore`).
+- No `SearchStore` configured → `engine.search()` falls back to
+  structured filtering plus a naive keyword score over canonical content
+  within the same hybrid pipeline (`packages/core/src/hybrid-search.ts`).
+  It always works; it just isn't as good as a real search/vector backend.
+- No `VectorStore`/`EmbeddingProvider` configured → the hybrid pipeline
+  simply has no "semantic" candidate stage; its ranking weight is
+  redistributed across the other available signals rather than zeroing
+  out the score (`combineSignals()` in `hybrid-search.ts`).
+- No `GraphStore` configured → `engine.related()`/`relate()`/`unrelate()`/
+  `traverse()` throw `UnsupportedCapabilityError` explicitly, rather than
+  silently returning `[]` (which the "no fake implementations" rule in
+  [docs/CONTRIBUTING](/docs/CONTRIBUTING) treats as a bug, not a feature). When a
+  `GraphStore` *is* configured but a search doesn't pass `relatedTo`,
+  the "relationship" signal is simply absent for that query — same
+  graceful redistribution as the other signals.
+
+- No `CacheStore` configured → `engine.get()` reads straight through to
+  the canonical `MemoryStore` on every call, same result, just no
+  caching. When one *is* configured, `get()` is real cache-aside (check
+  cache → populate on miss) and every write path invalidates the
+  relevant entry rather than risking a stale write-through
+  (`packages/core/test/cache.test.ts`).
+
+## What's implemented vs. designed
+
+This document describes the full target architecture from the original
+design brief. The pieces described in `README.md`'s "Roadmap" section
+(Phase 1 — Core, Phase 2 — Retrieval, Phase 3 — Vector, Phase 4 —
+Evolution, Phase 5 — Graph, and the PostgreSQL/Redis slice of Phase 6 —
+Infrastructure) are implemented and tested in this repository today,
+including a real hybrid retrieval pipeline (structured + keyword +
+semantic + relationship, with an FTS5-backed `SearchStore`, a
+brute-force `VectorStore`, and an in-memory `GraphStore`) — see
+[docs/SEARCH](/docs/SEARCH) and [docs/GRAPH](/docs/GRAPH). Sections describing multi-adapter
+reconciliation and the remaining storage adapters
+(Postgres, Neo4j, Qdrant, etc.) describe the target design that later
+phases will implement against the interfaces already defined in
+`@memorie/storage`.

@@ -1,0 +1,48 @@
+{
+  "name": "@memorie/storage",
+  "version": "0.1.0",
+  "description": "Storage capability interfaces and adapter contract tests for Memorie.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sameer9823/memqra.git",
+    "directory": "packages/storage"
+  },
+  "homepage": "https://memqra.vercel.app/",
+  "bugs": "https://github.com/Sameer9823/memqra/issues",
+  "author": "Memorie Contributors",
+  "keywords": [
+    "memorie",
+    "memory",
+    "storage",
+    "adapter-interfaces"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contract-tests": {
+      "types": "./dist/contract-tests/index.d.ts",
+      "import": "./dist/contract-tests/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rimraf dist *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@memorie/types": "0.1.0"
+  },
+  "devDependencies": {
+    "rimraf": "^6.0.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}
