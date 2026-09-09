@@ -2,7 +2,7 @@
 
 [![GitHub License](https://img.shields.io/github/license/Sameer9823/samai-sdk)](https://github.com/Sameer9823/memorie/blob/main/LICENSE)
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://memqra.vercel.app/)
-[![CI](https://github.com/Sameer9823/samai-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/Sameer9823/memorie/blob/main/.github/workflows/ci.yml)
+
 
 **Universal Memory Infrastructure for Modern Software**
 
