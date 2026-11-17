@@ -4,7 +4,7 @@
 [![Documentation](https://img.shields.io/badge/docs-online-blue)](https://memqra.vercel.app/)
 
 
-**Universal Memory Infrastructure for Modern Software**
+**Universal Memory Infrastructure for Modern Software** 
 
 Memorie is a reusable memory infrastructure layer — not a chatbot, not an
 AI assistant, not a vector-database wrapper. Any application, AI system,
